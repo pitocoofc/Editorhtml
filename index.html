@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>App Dashboard</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background-color: #08080a;
+      color: #ffffff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      overflow: hidden;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.96); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    @keyframes slideDown {
+      from { opacity: 0; transform: translateY(-8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .view {
+      display: none;
+      flex-direction: column;
+      height: 100%;
+      width: 100%;
+      animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    .view.active {
+      display: flex;
+    }
+
+    .top-bar {
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+      padding: 16px 20px;
+      background-color: #101014;
+      border-bottom: 1px solid #1a1a22;
+    }
+
+    .btn-icon {
+      background: #17171e;
+      border: 1px solid #23232c;
+      border-radius: 12px;
+      width: 44px;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      position: relative;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .btn-icon:active {
+      transform: scale(0.92);
+      background: #23232c;
+    }
+
+    .btn-icon svg {
+      width: 20px;
+      height: 20px;
+      fill: #555;
+      transition: fill 0.3s;
+    }
+
+    .btn-icon.online svg {
+      fill: #2ecc71;
+    }
+
+    .dropdown-menu {
+      display: none;
+      position: absolute;
+      top: 54px;
+      right: 0;
+      background: #14141a;
+      border: 1px solid #23232c;
+      border-radius: 14px;
+      width: 170px;
+      box-shadow: 0 12px 30px rgba(0,0,0,0.7);
+      z-index: 10;
+      overflow: hidden;
+      animation: slideDown 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    .dropdown-menu.active {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .dropdown-item {
+      padding: 14px 18px;
+      color: #ccc;
+      font-size: 14px;
+      border-bottom: 1px solid #1a1a22;
+      cursor: pointer;
+      background: none;
+      border-left: none; border-right: none; border-top: none;
+      text-align: left;
+      width: 100%;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .dropdown-item:last-child {
+      border-bottom: none;
+    }
+
+    .dropdown-item:active {
+      background-color: #23232c;
+      color: #fff;
+    }
+
+    .app-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+      gap: 24px;
+      padding: 24px;
+      flex-grow: 1;
+      align-content: start;
+      overflow-y: auto;
+    }
+
+    .empty-state {
+      grid-column: 1 / -1;
+      text-align: center;
+      color: #444;
+      margin-top: 100px;
+      font-size: 14px;
+      animation: fadeIn 0.4s ease;
+    }
+
+    .app-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .app-icon {
+      width: 64px;
+      height: 64px;
+      background: linear-gradient(145deg, #181820 0%, #0e0e13 100%);
+      border: 1px solid #23232c;
+      border-radius: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      font-weight: 600;
+      color: #3498db;
+      box-shadow: 0 8px 16px rgba(0,0,0,0.4);
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .app-item:active .app-icon {
+      transform: scale(0.88);
+      border-color: #3498db;
+      box-shadow: 0 2px 6px rgba(52,152,219,0.3);
+    }
+
+    .app-name {
+      font-size: 12px;
+      color: #9999a6;
+      text-align: center;
+      max-width: 88px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.8);
+      backdrop-filter: blur(4px);
+      justify-content: center;
+      align-items: center;
+      z-index: 100;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    }
+
+    .modal-overlay.active {
+      display: flex;
+      opacity: 1;
+    }
+
+    .modal-box {
+      background: #14141a;
+      border: 1px solid #23232c;
+      padding: 24px;
+      border-radius: 20px;
+      width: 88%;
+      max-width: 320px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.7);
+      animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    .modal-box h3 {
+      font-size: 16px;
+      color: #fff;
+      font-weight: 600;
+    }
+
+    .modal-box input {
+      background: #0a0a0e;
+      border: 1px solid #1f1f28;
+      border-radius: 10px;
+      padding: 14px;
+      color: #fff;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .modal-box input:focus {
+      border-color: #3498db;
+    }
+
+    .modal-buttons {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 4px;
+    }
+
+    .modal-buttons button, .modal-box .sub-btn {
+      padding: 12px 18px;
+      border-radius: 10px;
+      border: none;
+      font-size: 13px;
+      cursor: pointer;
+      font-weight: 500;
+      transition: transform 0.15s;
+    }
+
+    .modal-buttons button:active, .modal-box .sub-btn:active {
+      transform: scale(0.96);
+    }
+
+    .btn-cancel {
+      background: #1d1d26;
+      color: #aaa;
+    }
+
+    .btn-confirm {
+      background: #3498db;
+      color: #fff;
+    }
+
+    .btn-danger {
+      background: #e74c3c;
+      color: #fff;
+    }
+
+    .btn-edit {
+      background: #2980b9;
+      color: #fff;
+    }
+
+    .footer-tip {
+      background-color: #101014;
+      border-top: 1px solid #1a1a22;
+      text-align: center;
+      padding: 14px;
+      font-size: 12px;
+      color: #555561;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="home-view" class="view active">
+    <div class="top-bar">
+      <div class="btn-icon" id="wifi-btn">
+        <svg viewBox="0 0 24 24">
+          <path d="M12 3C7.95 3 4.21 4.34 1.2 6.6L3 9C5.5 7.12 8.62 6 12 6C15.38 6 18.5 7.12 21 9L22.8 6.6C19.79 4.34 16.05 3 12 3ZM12 9C9.3 9 6.81 9.89 4.8 11.4L6.6 13.8C8.1 12.67 9.97 12 12 12C14.03 12 15.9 12.67 17.4 13.8L19.2 11.4C17.19 9.89 14.7 9 12 9ZM12 15C10.35 15 8.83 15.55 7.6 16.5L12 21L16.4 16.5C15.17 15.55 13.65 15 12 15Z"/>
+        </svg>
+      </div>
+
+      <div class="btn-icon" id="menu-btn">
+        <svg viewBox="0 0 24 24">
+          <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/>
+        </svg>
+
+        <div class="dropdown-menu" id="dropdown-menu">
+          <button class="dropdown-item" id="menu-new">New</button>
+          <button class="dropdown-item" id="menu-plugins">Plugins</button>
+          <button class="dropdown-item" id="menu-settings">Settings</button>
+          <button class="dropdown-item" id="menu-backup">Backup</button>
+          <button class="dropdown-item" id="menu-about">About</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="app-grid" id="app-grid">
+      <div class="empty-state">Nenhum aplicativo criado ainda.</div>
+    </div>
+
+    <div class="footer-tip">
+      Toque para abrir • Segure para gerenciar
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="new-app-modal">
+    <div class="modal-box">
+      <h3>Novo Aplicativo</h3>
+      <input type="text" id="app-name-input" placeholder="Nome do App..." autocomplete="off" />
+      <div class="modal-buttons">
+        <button class="btn-cancel" id="modal-cancel">Cancelar</button>
+        <button class="btn-confirm" id="modal-confirm">Criar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="app-options-modal">
+    <div class="modal-box">
+      <h3 id="options-app-title">Gerenciar App</h3>
+      <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 4px;">
+        <button class="sub-btn btn-confirm" id="btn-open-app" style="width:100%; text-align:center;">Executar App</button>
+        <button class="sub-btn btn-edit" id="btn-edit-app" style="width:100%; text-align:center;">Editar Código</button>
+        <button class="sub-btn btn-danger" id="btn-delete-app" style="width:100%; text-align:center;">Excluir Aplicativo</button>
+        <button class="sub-btn btn-cancel" id="btn-cancel-options" style="width:100%; text-align:center;">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    if (!localStorage.getItem('user_apps')) {
+      localStorage.setItem('user_apps', JSON.stringify([]));
+    }
+
+    function loadApps() {
+      const grid = document.getElementById('app-grid');
+      const apps = JSON.parse(localStorage.getItem('user_apps') || '[]');
+
+      if (apps.length === 0) {
+        grid.innerHTML = '<div class="empty-state">Nenhum aplicativo criado ainda.</div>';
+        return;
+      }
+
+      grid.innerHTML = '';
+      apps.forEach(app => {
+        const item = document.createElement('div');
+        item.className = 'app-item';
+        
+        item.innerHTML = `
+          <div class="app-icon">${app.id}</div>
+          <div class="app-name">${app.name}</div>
+        `;
+
+        let pressTimer;
+        let isLongPress = false;
+
+        const startPress = () => {
+          isLongPress = false;
+          pressTimer = setTimeout(() => {
+            isLongPress = true;
+            if (navigator.vibrate) navigator.vibrate(40);
+            openOptionsModal(app);
+          }, 500);
+        };
+
+        const cancelPress = () => {
+          clearTimeout(pressTimer);
+        };
+
+        const handleClick = () => {
+          if (!isLongPress) {
+            runApp(app);
+          }
+        };
+
+        item.addEventListener('touchstart', startPress, {passive: true});
+        item.addEventListener('touchend', cancelPress);
+        item.addEventListener('touchmove', cancelPress);
+
+        item.addEventListener('mousedown', startPress);
+        item.addEventListener('mouseup', cancelPress);
+        item.addEventListener('mouseleave', cancelPress);
+
+        item.addEventListener('click', handleClick);
+        
+        grid.appendChild(item);
+      });
+    }
+
+    function runApp(app) {
+      const htmlContent = app.code || '<html><body style="font-family:sans-serif; padding:20px; color:#333;"><h2>App Vazio</h2></body></html>';
+      const win = window.open('', '_blank');
+      if (win) {
+        win.document.write(htmlContent);
+        win.document.close();
+      }
+    }
+
+    function openEditor(app) {
+      window.location.href = `editor.html?id=${app.id}`;
+    }
+
+    const menuBtn = document.getElementById('menu-btn');
+    const dropdownMenu = document.getElementById('dropdown-menu');
+
+    menuBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      dropdownMenu.classList.toggle('active');
+    });
+
+    document.addEventListener('click', () => {
+      dropdownMenu.classList.remove('active');
+    });
+
+    const newModal = document.getElementById('new-app-modal');
+    document.getElementById('menu-new').addEventListener('click', () => {
+      document.getElementById('app-name-input').value = '';
+      newModal.classList.add('active');
+      setTimeout(() => document.getElementById('app-name-input').focus(), 100);
+    });
+
+    document.getElementById('modal-cancel').addEventListener('click', () => {
+      newModal.classList.remove('active');
+    });
+
+    document.getElementById('modal-confirm').addEventListener('click', () => {
+      const name = document.getElementById('app-name-input').value.trim();
+      if (!name) return;
+
+      const apps = JSON.parse(localStorage.getItem('user_apps') || '[]');
+      const newId = apps.length > 0 ? apps[apps.length - 1].id + 1 : 1;
+
+      const defaultHtml = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${name}</title>
+  <style>
+    body { background: #0b0b0e; color: #fff; font-family: -apple-system, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+    h1 { color: #3498db; margin-bottom: 8px; }
+    p { color: #888; font-size: 14px; margin-bottom: 20px; }
+    button { padding: 12px 24px; background: #3498db; color: #fff; border: none; border-radius: 10px; font-size: 15px; cursor: pointer; font-weight: 500; }
+  </style>
+</head>
+<body>
+  <h1>${name}</h1>
+  <p>Seu aplicativo HTML/JS descentralizado está rodando!</p>
+  <button onclick="alert('Olá do App!')">Testar Alerta</button>
+</body>
+</html>`;
+
+apps.push({ id: newId, name: name, code: defaultHtml });
+localStorage.setItem('user_apps', JSON.stringify(apps));
+
+newModal.classList.remove('active');
+loadApps();
+});
+
+    const optionsModal = document.getElementById('app-options-modal');
+    let selectedAppForOptions = null;
+
+    function openOptionsModal(app) {
+      selectedAppForOptions = app;
+      document.getElementById('options-app-title').innerText = app.name;
+      optionsModal.classList.add('active');
+    }
+
+    document.getElementById('btn-cancel-options').addEventListener('click', () => {
+      optionsModal.classList.remove('active');
+    });
+
+    document.getElementById('btn-open-app').addEventListener('click', () => {
+      if (!selectedAppForOptions) return;
+      optionsModal.classList.remove('active');
+      runApp(selectedAppForOptions);
+    });
+
+    document.getElementById('btn-edit-app').addEventListener('click', () => {
+      if (!selectedAppForOptions) return;
+      optionsModal.classList.remove('active');
+      openEditor(selectedAppForOptions);
+    });
+
+    document.getElementById('btn-delete-app').addEventListener('click', () => {
+      if (!selectedAppForOptions) return;
+      if (confirm(`Deseja excluir o app "${selectedAppForOptions.name}"?`)) {
+        let apps = JSON.parse(localStorage.getItem('user_apps') || '[]');
+        apps = apps.filter(a => a.id !== selectedAppForOptions.id);
+        localStorage.setItem('user_apps', JSON.stringify(apps));
+        optionsModal.classList.remove('active');
+        loadApps();
+      }
+    });
+
+    document.getElementById('menu-plugins').addEventListener('click', () => alert('Plugins em breve'));
+    document.getElementById('menu-settings').addEventListener('click', () => alert('Settings em breve'));
+    document.getElementById('menu-backup').addEventListener('click', () => alert('Backup em breve'));
+    document.getElementById('menu-about').addEventListener('click', () => alert('DroidScript Killer - V1.3'));
+
+    async function checkWifiStatus() {
+      const wifiBtn = document.getElementById('wifi-btn');
+      try {
+        await fetch('https://api.github.com', { method: 'HEAD', cache: 'no-store' });
+        wifiBtn.classList.add('online');
+      } catch (err) {
+        wifiBtn.classList.remove('online');
+      }
+    }
+
+    checkWifiStatus();
+    setInterval(checkWifiStatus, 10000);
+
+    loadApps();
+  </script>
+</body>
+</html>
