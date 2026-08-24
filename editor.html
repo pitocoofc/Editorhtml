@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Editor de App</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0e0e12; color: #fff; font-family: -apple-system, sans-serif; height: 100vh; display: flex; flex-direction: column; }
+    header { display: flex; justify-content: space-between; align-items: center; padding: 14px 20px; background: #121216; border-bottom: 1px solid #1f1f26; }
+    h2 { font-size: 15px; font-weight: 500; }
+    .actions { display: flex; gap: 8px; }
+    button { background: #1a1a20; border: 1px solid #282832; color: #ccc; padding: 8px 16px; border-radius: 8px; font-size: 13px; cursor: pointer; font-weight: 500; }
+    button.primary { background: #3498db; border-color: #3498db; color: #fff; }
+    button:active { transform: scale(0.96); }
+    .container { flex-grow: 1; display: flex; flex-direction: column; padding: 12px; }
+    textarea { flex-grow: 1; background: #08080a; border: 1px solid #1f1f26; border-radius: 8px; color: #e2e2e9; font-family: 'Courier New', Courier, monospace; font-size: 14px; padding: 12px; resize: none; outline: none; line-height: 1.5; }
+    textarea:focus { border-color: #3498db; }
+  </style>
+</head>
+<body>
+  <header>
+    <h2 id="editor-title">Editando App</h2>
+    <div class="actions">
+      <button onclick="window.location.href='index.html'">Voltar</button>
+      <button class="primary" onclick="saveCode()">Salvar</button>
+    </div>
+  </header>
+  <div class="container">
+    <textarea id="code-box"></textarea>
+  </div>
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const appId = parseInt(urlParams.get('id'));
+
+    const apps = JSON.parse(localStorage.getItem('user_apps') || '[]');
+    const app = apps.find(a => a.id === appId);
+
+    if (!app) {
+      alert('Aplicativo não encontrado!');
+      window.location.href = 'index.html';
+    } else {
+      document.getElementById('editor-title').innerText = `Editando: ${app.name}`;
+      document.getElementById('code-box').value = app.code || '';
+    }
+
+    function saveCode() {
+      const newCode = document.getElementById('code-box').value;
+      const appIndex = apps.findIndex(a => a.id === appId);
+      if(appIndex !== -1) {
+        apps[appIndex].code = newCode;
+        localStorage.setItem('user_apps', JSON.stringify(apps));
+        alert('Código salvo com sucesso!');
+      } else {
+        alert('Erro ao salvar.');
+      }
+    }
+  </script>
+</body>
+</html>
