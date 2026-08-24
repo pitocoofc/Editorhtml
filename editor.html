@@ -6,16 +6,59 @@
   <title>Editor de App</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: #0e0e12; color: #fff; font-family: -apple-system, sans-serif; height: 100vh; display: flex; flex-direction: column; }
+    body { background: #0b0b0e; color: #fff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+    
     header { display: flex; justify-content: space-between; align-items: center; padding: 14px 20px; background: #121216; border-bottom: 1px solid #1f1f26; }
-    h2 { font-size: 15px; font-weight: 500; }
+    h2 { font-size: 15px; font-weight: 500; color: #e2e2e9; }
     .actions { display: flex; gap: 8px; }
-    button { background: #1a1a20; border: 1px solid #282832; color: #ccc; padding: 8px 16px; border-radius: 8px; font-size: 13px; cursor: pointer; font-weight: 500; }
-    button.primary { background: #3498db; border-color: #3498db; color: #fff; }
+    button { background: #1a1a20; border: 1px solid #282832; color: #ccc; padding: 8px 16px; border-radius: 8px; font-size: 13px; cursor: pointer; font-weight: 500; transition: 0.15s; }
     button:active { transform: scale(0.96); }
-    .container { flex-grow: 1; display: flex; flex-direction: column; padding: 12px; }
-    textarea { flex-grow: 1; background: #08080a; border: 1px solid #1f1f26; border-radius: 8px; color: #e2e2e9; font-family: 'Courier New', Courier, monospace; font-size: 14px; padding: 12px; resize: none; outline: none; line-height: 1.5; }
+    button.primary { background: #3498db; border-color: #3498db; color: #fff; }
+
+    .container { flex-grow: 1; display: flex; flex-direction: column; padding: 14px; position: relative; }
+    
+    textarea { 
+      flex-grow: 1; 
+      background: #08080a; 
+      border: 1px solid #1f1f26; 
+      border-radius: 12px; 
+      color: #e2e2e9; 
+      font-family: 'Courier New', Courier, monospace; 
+      font-size: 14px; 
+      padding: 16px; 
+      resize: none; 
+      outline: none; 
+      line-height: 1.6; 
+      tab-size: 2;
+    }
     textarea:focus { border-color: #3498db; }
+
+    /* Caixa de Sugestões Flutuante */
+    .suggestions-box {
+      display: none;
+      position: absolute;
+      background: #16161c;
+      border: 1px solid #2a2a35;
+      border-radius: 10px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+      width: 220px;
+      max-height: 150px;
+      overflow-y: auto;
+      z-index: 10;
+    }
+    .suggestion-item {
+      padding: 10px 14px;
+      font-size: 13px;
+      color: #bbb;
+      cursor: pointer;
+      font-family: monospace;
+      border-bottom: 1px solid #1f1f26;
+    }
+    .suggestion-item:last-child { border-bottom: none; }
+    .suggestion-item:hover, .suggestion-item.selected {
+      background: #23232c;
+      color: #fff;
+    }
   </style>
 </head>
 <body>
@@ -26,9 +69,12 @@
       <button class="primary" onclick="saveCode()">Salvar</button>
     </div>
   </header>
+
   <div class="container">
-    <textarea id="code-box"></textarea>
+    <textarea id="code-box" placeholder="Digite seu código aqui..."></textarea>
+    <div id="suggestions" class="suggestions-box"></div>
   </div>
+
   <script>
     const urlParams = new URLSearchParams(window.location.search);
     const appId = parseInt(urlParams.get('id'));
@@ -36,19 +82,109 @@
     const apps = JSON.parse(localStorage.getItem('user_apps') || '[]');
     const app = apps.find(a => a.id === appId);
 
+    const codeBox = document.getElementById('code-box');
+    const suggestionsBox = document.getElementById('suggestions');
+
+    // Palavras-chave básicas para sugestão
+    const keywords = ['.log', '.alert', 'document', 'window', 'querySelector', 'getElementById', 'innerHTML', 'function', 'const', 'let', 'return', 'addEventListener'];
+
     if (!app) {
       alert('Aplicativo não encontrado!');
       window.location.href = 'index.html';
     } else {
       document.getElementById('editor-title').innerText = `Editando: ${app.name}`;
-      document.getElementById('code-box').value = app.code || '';
+      codeBox.value = app.code || '';
+    }
+
+    // Lógica de Sugestões Inteligentes e Autocomplete por Enter
+    codeBox.addEventListener('input', (e) => {
+      const pos = codeBox.selectionStart;
+      const textBeforeCursor = codeBox.value.substring(0, pos);
+      const words = textBeforeCursor.split(/[\s\(\)\{\}\+\-\*\/\=\[\]\.]+/);
+      const currentWord = words[words.length - 1];
+
+      if (currentWord.length < 2) {
+        hideSuggestions();
+        return;
+      }
+
+      const matches = keywords.filter(k => k.toLowerCase().startsWith(currentWord.toLowerCase()));
+      if (matches.length > 0) {
+        showSuggestions(matches, currentWord);
+      } else {
+        hideSuggestions();
+      }
+    });
+
+    function showSuggestions(matches, query) {
+      suggestionsBox.innerHTML = '';
+      matches.forEach((match, index) => {
+        const div = document.createElement('div');
+        div.className = `suggestion-item ${index === 0 ? 'selected' : ''}`;
+        div.innerText = match;
+        div.onclick = () => applySuggestion(match, query);
+        suggestionsBox.appendChild(div);
+      });
+      suggestionsBox.style.display = 'block';
+    }
+
+    function hideSuggestions() {
+      suggestionsBox.style.display = 'none';
+    }
+
+    function applySuggestion(suggestion, query) {
+      const pos = codeBox.selectionStart;
+      const val = codeBox.value;
+      const start = pos - query.length;
+      
+      // Completa apenas o que falta da palavra
+      const completion = suggestion.substring(query.length);
+      codeBox.value = val.substring(0, pos) + completion + val.substring(pos);
+      codeBox.selectionStart = codeBox.selectionEnd = pos + completion.length;
+      
+      hideSuggestions();
+      codeBox.focus();
+    }
+
+    // Interceptar Enter para aceitar sugestão se a caixa estiver aberta
+    codeBox.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && suggestionsBox.style.display === 'block') {
+        const selected = suggestionsBox.querySelector('.suggestion-item.selected');
+        if (selected) {
+          e.preventDefault();
+          selected.click();
+        }
+      }
+    });
+
+    // Função de Processar o Comando TPArch antes de salvar/executar
+    function processTPArch(rawCode) {
+      // Procura por linhas do tipo: TPArch = 'nome_do_arquivo'
+      const regex = /TPArch\s*=\s*['"]([^'"]+)['"]/g;
+      let processedCode = rawCode;
+      let match;
+
+      while ((match = regex.exec(rawCode)) !== null) {
+        const targetName = match[1];
+        // Procura nos apps salvos (plugins baixados ou criados)
+        const foundApp = apps.find(a => a.name.toLowerCase() === targetName.toLowerCase());
+        
+        if (foundApp) {
+          // Substitui a linha TPArch inteira pelo código do arquivo encontrado
+          processedCode = processedCode.replace(match[0], foundApp.code);
+        }
+      }
+      return processedCode;
     }
 
     function saveCode() {
-      const newCode = document.getElementById('code-box').value;
+      const rawCode = codeBox.value;
+      // Aplica a regra de puxar o código do arquivo correspondente se o TPArch for usado
+      const finalCode = processTPArch(rawCode);
+
       const appIndex = apps.findIndex(a => a.id === appId);
       if(appIndex !== -1) {
-        apps[appIndex].code = newCode;
+        apps[appIndex].code = finalCode; // Salva já processado ou limpo
         localStorage.setItem('user_apps', JSON.stringify(apps));
         alert('Código salvo com sucesso!');
       } else {
