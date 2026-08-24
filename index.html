@@ -409,13 +409,9 @@
     }
 
     function runApp(app) {
-      const htmlContent = app.code || '<html><body style="font-family:sans-serif; padding:20px; color:#333;"><h2>App Vazio</h2></body></html>';
-      const win = window.open('', '_blank');
-      if (win) {
-        win.document.write(htmlContent);
-        win.document.close();
-      }
-    }
+  window.location.href = `executar.html?id=${app.id}`;
+}
+
 
     function openEditor(app) {
       window.location.href = `editor.html?id=${app.id}`;
