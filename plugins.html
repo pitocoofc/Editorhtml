@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Plugins / Repositório</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+    body { background: #08080a; color: #fff; font-family: -apple-system, sans-serif; height: 100vh; display: flex; flex-direction: column; }
+    header { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; background: #101014; border-bottom: 1px solid #1a1a22; }
+    h2 { font-size: 16px; font-weight: 600; }
+    button { background: #17171e; border: 1px solid #23232c; color: #ccc; padding: 8px 14px; border-radius: 8px; font-size: 13px; cursor: pointer; }
+    button:active { transform: scale(0.96); background: #23232c; color: #fff; }
+    .container { flex-grow: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+    .plugin-card { background: #14141a; border: 1px solid #23232c; border-radius: 14px; padding: 16px; display: flex; justify-content: space-between; align-items: center; animation: fadeIn 0.3s ease; }
+    .plugin-info { display: flex; flex-direction: column; gap: 4px; overflow: hidden; max-width: 65%; }
+    .plugin-name { font-size: 14px; font-weight: 500; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .plugin-type { font-size: 11px; color: #666; text-transform: uppercase; }
+    .btn-download { background: #3498db; border: none; color: #fff; font-weight: 500; padding: 10px 16px; border-radius: 10px; }
+    .btn-download:active { background: #2980b9; }
+    .loading, .empty { text-align: center; color: #555; margin-top: 60px; font-size: 14px; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+  </style>
+</head>
+<body>
+  <header>
+    <h2>Plugins do Repositório</h2>
+    <button onclick="window.location.href='index.html'">Voltar</button>
+  </header>
+
+  <div class="container" id="plugin-list">
+    <div class="loading">Carregando arquivos do repositório...</div>
+  </div>
+
+  <script>
+    const REPO_API = 'https://api.github.com/repos/pitocoofc/plugins/contents';
+
+    async function fetchPlugins() {
+      const listContainer = document.getElementById('plugin-list');
+      try {
+        const response = await fetch(REPO_API);
+        if (!response.ok) throw new Error('Erro ao buscar repositório');
+        const files = await response.json();
+
+        // Filtra apenas arquivos válidos (ex: js, html, txt, lua, etc) ignorando pastas se preferir, ou mostra tudo
+        if (!Array.isArray(files) || files.length === 0) {
+          listContainer.innerHTML = '<div class="empty">Nenhum arquivo encontrado.</div>';
+          return;
+        }
+
+        listContainer.innerHTML = '';
+        files.forEach(file => {
+          const card = document.createElement('div');
+          card.className = 'plugin-card';
+          
+          card.innerHTML = `
+            <div class="plugin-info">
+              <span class="plugin-name" title="${file.name}">${file.name}</span>
+              <span class="plugin-type">${file.type}</span>
+            </div>
+            <button class="btn-download" onclick="downloadAndSave('${file.name}', '${file.download_url}')">Baixar</button>
+          `;
+          listContainer.appendChild(card);
+        });
+
+      } catch (err) {
+        listContainer.innerHTML = `<div class="empty" style="color: #e74c3c;">Erro ao conectar com o GitHub.<br><small>${err.message}</small></div>`;
+      }
+    }
+
+    async function downloadAndSave(fileName, downloadUrl) {
+      if (!downloadUrl) {
+        alert('Este item é uma pasta ou não possui link direto.');
+        return;
+      }
+
+      try {
+        const res = await fetch(downloadUrl);
+        const codeContent = await res.text();
+
+        const apps = JSON.parse(localStorage.getItem('user_apps') || '[]');
+        const newId = apps.length > 0 ? apps[apps.length - 1].id + 1 : 1;
+
+        apps.push({
+          id: newId,
+          name: fileName,
+          code: codeContent
+        });
+
+        localStorage.setItem('user_apps', JSON.stringify(apps));
+        alert(`Arquivo "${fileName}" baixado e salvo com sucesso no seu Dashboard!`);
+        window.location.href = 'index.html';
+
+      } catch (e) {
+        alert('Erro ao baixar o conteúdo do arquivo.');
+      }
+    }
+
+    fetchPlugins();
+  </script>
+</body>
+</html>
