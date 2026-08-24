@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Editor de App</title>
+  <title>Editor de App com Plugins e Sugestões</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { background: #0b0b0e; color: #fff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
@@ -33,7 +33,7 @@
     }
     textarea:focus { border-color: #3498db; }
 
-    /* Caixa de Sugestões Flutuante */
+    /* Caixa de Sugestões Flutuante (Até 3 sugestões) */
     .suggestions-box {
       display: none;
       position: absolute;
@@ -42,7 +42,7 @@
       border-radius: 10px;
       box-shadow: 0 8px 24px rgba(0,0,0,0.6);
       width: 220px;
-      max-height: 150px;
+      max-height: 130px;
       overflow-y: auto;
       z-index: 10;
     }
@@ -71,7 +71,7 @@
   </header>
 
   <div class="container">
-    <textarea id="code-box" placeholder="Digite seu código aqui..."></textarea>
+    <textarea id="code-box" placeholder="Digite seu código aqui... Use importplugin.lua por exemplo."></textarea>
     <div id="suggestions" class="suggestions-box"></div>
   </div>
 
@@ -85,8 +85,25 @@
     const codeBox = document.getElementById('code-box');
     const suggestionsBox = document.getElementById('suggestions');
 
-    // Palavras-chave básicas para sugestão
-    const keywords = ['.log', '.alert', 'document', 'window', 'querySelector', 'getElementById', 'innerHTML', 'function', 'const', 'let', 'return', 'addEventListener'];
+    // Lista de sugestões carregada do TXT ou fallback
+    let externalKeywords = ['.log', '.alert', 'document', 'window', 'importplugin', 'TPArch'];
+
+    // Puxa as sugestões do arquivo .TXT
+    async function loadSuggestions() {
+      try {
+        const response = await fetch('sugestoes.txt');
+        if (response.ok) {
+          const text = await response.text();
+          const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+          if (lines.length > 0) {
+            externalKeywords = lines;
+          }
+        }
+      } catch (e) {
+        console.log('Usando sugestões padrão (sugestoes.txt não encontrado ou inacessível).');
+      }
+    }
+    loadSuggestions();
 
     if (!app) {
       alert('Aplicativo não encontrado!');
@@ -96,8 +113,8 @@
       codeBox.value = app.code || '';
     }
 
-    // Lógica de Sugestões Inteligentes e Autocomplete por Enter
-    codeBox.addEventListener('input', (e) => {
+    // Sugestões inteligentes (máximo de 3 itens)
+    codeBox.addEventListener('input', () => {
       const pos = codeBox.selectionStart;
       const textBeforeCursor = codeBox.value.substring(0, pos);
       const words = textBeforeCursor.split(/[\s\(\)\{\}\+\-\*\/\=\[\]\.]+/);
@@ -108,7 +125,10 @@
         return;
       }
 
-      const matches = keywords.filter(k => k.toLowerCase().startsWith(currentWord.toLowerCase()));
+      const matches = externalKeywords
+        .filter(k => k.toLowerCase().startsWith(currentWord.toLowerCase()))
+        .slice(0, 3); // Limita estritamente a 3 possíveis sugestões
+
       if (matches.length > 0) {
         showSuggestions(matches, currentWord);
       } else {
@@ -135,10 +155,8 @@
     function applySuggestion(suggestion, query) {
       const pos = codeBox.selectionStart;
       const val = codeBox.value;
-      const start = pos - query.length;
-      
-      // Completa apenas o que falta da palavra
       const completion = suggestion.substring(query.length);
+      
       codeBox.value = val.substring(0, pos) + completion + val.substring(pos);
       codeBox.selectionStart = codeBox.selectionEnd = pos + completion.length;
       
@@ -146,7 +164,7 @@
       codeBox.focus();
     }
 
-    // Interceptar Enter para aceitar sugestão se a caixa estiver aberta
+    // Tecla Enter aceita a sugestão ativa na caixa flutuante
     codeBox.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && suggestionsBox.style.display === 'block') {
         const selected = suggestionsBox.querySelector('.suggestion-item.selected');
@@ -157,36 +175,62 @@
       }
     });
 
-    // Função de Processar o Comando TPArch antes de salvar/executar
-    function processTPArch(rawCode) {
-      // Procura por linhas do tipo: TPArch = 'nome_do_arquivo'
-      const regex = /TPArch\s*=\s*['"]([^'"]+)['"]/g;
+    // Processa comandos TPArch e importplugin
+    function processProcessors(rawCode) {
       let processedCode = rawCode;
-      let match;
 
-      while ((match = regex.exec(rawCode)) !== null) {
-        const targetName = match[1];
-        // Procura nos apps salvos (plugins baixados ou criados)
-        const foundApp = apps.find(a => a.name.toLowerCase() === targetName.toLowerCase());
-        
-        if (foundApp) {
-          // Substitui a linha TPArch inteira pelo código do arquivo encontrado
-          processedCode = processedCode.replace(match[0], foundApp.code);
+      // 1. Processa importplugin (ex: importplugin.lua)
+      const pluginRegex = /importplugin\.([a-zA-Z0-9_-]+)/g;
+      let pluginMatch;
+      while ((pluginMatch = pluginRegex.exec(rawCode)) !== null) {
+        const pluginName = pluginMatch[1];
+        const pluginApp = apps.find(a => a.name.toLowerCase() === pluginName.toLowerCase());
+
+        if (pluginApp && pluginApp.code) {
+          // O plugin pode conter regras de substituição/correção (ex: interpretador/corretor)
+          // Aqui executamos o código do plugin de forma segura para varrer e corrigir o código fonte principal
+          try {
+            // Cria uma função dinâmica onde o plugin processa o código atual
+            const correctionFunction = new Function('code', 'print', pluginApp.code + '; return typeof corrigir === "function" ? corrigir(code) : code;');
+            
+            // Mock básico de função print caso o plugin utilize para mapear correções
+            const customPrintMock = (msg) => { console.log("Plugin log:", msg); };
+            
+            const corrected = correctionFunction(processedCode, customPrintMock);
+            if (typeof corrected === 'string') {
+              processedCode = corrected;
+            }
+          } catch (err) {
+            console.error("Erro ao executar plugin de correção:", err);
+          }
+          // Remove a diretiva importplugin da string final se necessário ou mantém
+          processedCode = processedCode.replace(pluginMatch[0], '');
         }
       }
+
+      // 2. Processa TPArch tradicional (Injeta código direto)
+      const archRegex = /TPArch\s*=\s*['"]([^'"]+)['"]/g;
+      let archMatch;
+      while ((archMatch = archRegex.exec(rawCode)) !== null) {
+        const targetName = archMatch[1];
+        const foundApp = apps.find(a => a.name.toLowerCase() === targetName.toLowerCase());
+        if (foundApp) {
+          processedCode = processedCode.replace(archMatch[0], foundApp.code);
+        }
+      }
+
       return processedCode;
     }
 
     function saveCode() {
       const rawCode = codeBox.value;
-      // Aplica a regra de puxar o código do arquivo correspondente se o TPArch for usado
-      const finalCode = processTPArch(rawCode);
+      const finalCode = processProcessors(rawCode);
 
       const appIndex = apps.findIndex(a => a.id === appId);
       if(appIndex !== -1) {
-        apps[appIndex].code = finalCode; // Salva já processado ou limpo
+        apps[appIndex].code = finalCode;
         localStorage.setItem('user_apps', JSON.stringify(apps));
-        alert('Código salvo com sucesso!');
+        alert('Código processado e salvo com sucesso!');
       } else {
         alert('Erro ao salvar.');
       }
