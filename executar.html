@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Executando App</title>
+</head>
+<body>
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const appId = parseInt(urlParams.get('id'));
+
+    const apps = JSON.parse(localStorage.getItem('user_apps') || '[]');
+    const app = apps.find(a => a.id === appId);
+
+    if (!app) {
+      alert('Aplicativo não encontrado!');
+      window.location.href = 'index.html';
+    } else {
+      // Injeta e executa o código HTML diretamente na página atual de forma nativa
+      document.open();
+      document.write(app.code || '<html><body style="background:#08080a;color:#fff;font-family:sans-serif;padding:20px;"><h2>App vazio</h2></body></html>');
+      document.close();
+    }
+  </script>
+</body>
+</html>
